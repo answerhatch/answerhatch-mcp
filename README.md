@@ -39,7 +39,7 @@ Any MCP client, config form:
 }
 ```
 
-Until the npm release lands, run it from source:
+From source, to hack on it:
 
 ```
 git clone https://github.com/answerhatch/answerhatch-mcp
