@@ -48,16 +48,16 @@ npm install
 claude mcp add answerhatch -- node /absolute/path/to/answerhatch-mcp/index.js
 ```
 
-You need an AnswerHatch account. Create one at https://answerhatch.com (self-serve, a free trial), then sign in with the `answerhatch_login` tool below. For non-interactive use you can instead set `ANSWERHATCH_TOKEN` in the server's environment and skip the login step.
+You need an AnswerHatch account. The agent can create one for you with `answerhatch_signup`, or sign up yourself at https://answerhatch.com (self-serve, a free trial) and use `answerhatch_login`. For non-interactive use, set `ANSWERHATCH_TOKEN` in the server's environment and skip both.
 
 ## Use it
 
 In your agent, just ask:
 
 ```
-You:    Add cited answers to docs.example.com
-Agent:  (answerhatch_login, then answerhatch_create_tenant)
-        Registered. Publish this TXT record to prove you own the domain:
+You:    Sign me up and add cited answers to docs.example.com
+Agent:  (answerhatch_signup, then answerhatch_create_tenant)
+        Account created. Publish this TXT record to prove you own the domain:
           name:  _answerhatch.docs.example.com
           type:  TXT
           value: ah-verify-...
@@ -66,6 +66,10 @@ Agent:  (answerhatch_start_crawl, then polls answerhatch_status)
         Live. Paste this into your site:
           <script async src="https://cdn.answerhatch.com/api/widget.js"
             data-agency="..." data-key="..." data-env="prod"></script>
+You:    start a professional subscription
+Agent:  (answerhatch_subscribe)
+        Open this link to enter your card and start the 14-day trial:
+          https://checkout.stripe.com/...
 ```
 
 The tools enforce the order the API requires (register, prove ownership, then crawl) and each one tells the agent what to do next, so the agent drives the whole flow without you touching a console.
@@ -74,10 +78,12 @@ The tools enforce the order the API requires (register, prove ownership, then cr
 
 | Tool | What it does |
 |---|---|
-| `answerhatch_login` | Sign in with email and password; holds the bearer token for the session. Skip it if `ANSWERHATCH_TOKEN` is set. Does not create accounts, sign up at answerhatch.com first. |
+| `answerhatch_signup` | Create a new account and sign in, so onboarding runs without leaving the agent. Use `answerhatch_login` instead if you already have one. |
+| `answerhatch_login` | Sign in with email and password; holds the bearer token for the session. Skip it if `ANSWERHATCH_TOKEN` is set. |
 | `answerhatch_create_tenant` | Register one domain and return its DNS TXT record. The crawl does not start here. |
 | `answerhatch_start_crawl` | Start the crawl once the TXT record is published. If it is not visible yet, returns the record again to retry. |
 | `answerhatch_status` | Report lifecycle stage, pages crawled, and verification. When the site is live it returns the embed snippet. |
+| `answerhatch_subscribe` | Start a paid subscription and return a Stripe checkout link. The card is entered on Stripe's page, never in the agent. 14-day free trial. |
 
 ## Security
 

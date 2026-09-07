@@ -99,6 +99,69 @@ test("login failure returns the API error string", async () => {
   assert.equal(text(result), "wrong email or password");
 });
 
+test("signup creates the account, signs in, and never echoes the password", async () => {
+  const calls = stubFetch({
+    "POST /api/v1/signup": { status: 200, body: { ok: true } },
+    "POST /api/v1/login": { status: 200, body: { token: SESSION_TOKEN } },
+    "POST /api/v1/tenants": {
+      status: 200,
+      body: { tenant_id: "t-1", verify: { record: "_answerhatch.example.com", type: "TXT", value: VERIFY_VALUE } },
+    },
+  });
+  const result = await run("answerhatch_signup", {
+    email: "new@example.com",
+    password: "correct-horse-battery",
+  });
+  assert.equal(result.isError, undefined);
+  assert.match(text(result), /Account created for new@example\.com/);
+  assert.ok(!text(result).includes("correct-horse-battery"));
+  assert.ok(!text(result).includes(SESSION_TOKEN));
+  assert.equal(calls[0].key, "POST /api/v1/signup");
+  assert.deepEqual(calls[0].body, { email: "new@example.com", password: "correct-horse-battery" });
+  assert.equal(calls[1].key, "POST /api/v1/login");
+  // Signed in: the next call carries the token from the auto-login.
+  await run("answerhatch_create_tenant", { domain: "example.com" });
+  assert.equal(calls[2].headers.authorization, "Bearer " + SESSION_TOKEN);
+});
+
+test("signup surfaces the API error and does not sign in", async () => {
+  const calls = stubFetch({
+    "POST /api/v1/signup": { status: 400, body: { error: "account already exists: new@example.com" } },
+  });
+  const result = await run("answerhatch_signup", {
+    email: "new@example.com",
+    password: "correct-horse-battery",
+  });
+  assert.equal(result.isError, true);
+  assert.equal(text(result), "account already exists: new@example.com");
+  assert.equal(calls.length, 1, "must not attempt login after a failed signup");
+});
+
+test("subscribe returns the Stripe checkout link", async () => {
+  process.env.ANSWERHATCH_TOKEN = ENV_TOKEN;
+  const calls = stubFetch({
+    "POST /api/v1/tenants/t-1/subscribe": { status: 200, body: { checkout_url: "https://checkout.stripe.com/c/pay/cs_test_9" } },
+  });
+  const result = await run("answerhatch_subscribe", { tenant_id: "t-1", plan: "starter" });
+  const body = text(result);
+  assert.equal(result.isError, undefined);
+  assert.ok(body.includes("https://checkout.stripe.com/c/pay/cs_test_9"));
+  assert.match(body, /14-day free trial/);
+  assert.match(body, /Stripe's secure page/);
+  assert.deepEqual(calls[0].body, { plan: "starter" });
+  assert.equal(calls[0].headers.authorization, "Bearer " + ENV_TOKEN);
+});
+
+test("subscribe surfaces an already-subscribed conflict", async () => {
+  process.env.ANSWERHATCH_TOKEN = ENV_TOKEN;
+  stubFetch({
+    "POST /api/v1/tenants/t-1/subscribe": { status: 409, body: { error: "you already have a subscription; contact us to change plans" } },
+  });
+  const result = await run("answerhatch_subscribe", { tenant_id: "t-1", plan: "starter" });
+  assert.equal(result.isError, true);
+  assert.equal(text(result), "you already have a subscription; contact us to change plans");
+});
+
 test("create_tenant returns the tenant id and the exact TXT record", async () => {
   process.env.ANSWERHATCH_TOKEN = ENV_TOKEN;
   const calls = stubFetch({
@@ -270,7 +333,7 @@ test("the API base falls back to production when ANSWERHATCH_API is unset", asyn
   assert.equal(calls[0].url, "https://api.answerhatch.com/api/v1/tenants/t-9");
 });
 
-test("the server registers all four tools and serves a call over MCP", async () => {
+test("the server registers all tools and serves a call over MCP", async () => {
   process.env.ANSWERHATCH_TOKEN = ENV_TOKEN;
   stubFetch({
     "GET /api/v1/tenants/t-77": {

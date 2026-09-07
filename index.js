@@ -99,6 +99,21 @@ async function login({ email, password }) {
   );
 }
 
+async function signup({ email, password }) {
+  const { status, data } = await call("POST", "/api/v1/signup", {
+    body: { email, password },
+    auth: false,
+  });
+  if (status !== 200 || !data.ok) throw fault(data, status, "signup failed");
+  // Sign straight in so onboarding continues without a second step.
+  await login({ email, password });
+  return (
+    "Account created for " + email + " and signed in at " + apiBase() + ".\n" +
+    "The token is held in memory for this session only. Continue with " +
+    "answerhatch_create_tenant."
+  );
+}
+
 async function createTenant({ domain, pages }) {
   const body = { domain };
   if (pages !== undefined && pages !== null) body.pages = pages;
@@ -177,6 +192,22 @@ async function tenantStatus({ tenant_id }) {
   return lines.join("\n");
 }
 
+async function subscribe({ tenant_id, plan }) {
+  const path = "/api/v1/tenants/" + encodeURIComponent(tenant_id) + "/subscribe";
+  const { status, data } = await call("POST", path, { body: { plan } });
+  if (status !== 200 || !data.checkout_url) {
+    throw fault(data, status, "could not start checkout");
+  }
+  return [
+    "Checkout ready: " + plan + " plan, tenant " + tenant_id + ".",
+    "",
+    "Open this link in a browser to enter the card and start the 14-day free trial:",
+    data.checkout_url,
+    "",
+    "The card is entered on Stripe's secure page, never here. The first charge is at trial end.",
+  ].join("\n");
+}
+
 // ----- tool table -----
 
 const TENANT_ARG = {
@@ -185,14 +216,28 @@ const TENANT_ARG = {
 
 export const TOOLS = [
   {
+    name: "answerhatch_signup",
+    title: "Create an AnswerHatch account",
+    description:
+      "Create a new AnswerHatch account and sign in, so the rest of onboarding " +
+      "runs without leaving the agent. Signup is open self-serve. Use this when " +
+      "the user has no account yet; if they already have one, use " +
+      "answerhatch_login instead. Never print the password back to the user.",
+    inputSchema: {
+      email: z.string().describe("account email address"),
+      password: z.string().describe("a strong password for the new account"),
+    },
+    impl: signup,
+  },
+  {
     name: "answerhatch_login",
     title: "Sign in to AnswerHatch",
     description:
       "Sign in and hold the bearer token for the rest of this session. Call " +
       "this once before any other answerhatch tool. Skip it when the server " +
       "was started with ANSWERHATCH_TOKEN set. This tool does not create " +
-      "accounts: sign up first at answerhatch.com/signup. Never print the " +
-      "password back to the user.",
+      "accounts: use answerhatch_signup, or sign up at answerhatch.com/signup. " +
+      "Never print the password back to the user.",
     inputSchema: {
       email: z.string().describe("account email address"),
       password: z.string().describe("account password"),
@@ -245,6 +290,23 @@ export const TOOLS = [
       "onboarding.",
     inputSchema: TENANT_ARG,
     impl: tenantStatus,
+  },
+  {
+    name: "answerhatch_subscribe",
+    title: "Start a paid subscription",
+    description:
+      "Start a paid subscription for a live tenant and return a Stripe checkout " +
+      "link for the user to open. Card details are entered on Stripe's hosted " +
+      "page, never here. A 14-day free trial applies and the first charge is at " +
+      "trial end. Call once the tenant is live (answerhatch_status shows the " +
+      "embed snippet). Plans: personal, starter, professional, scale.",
+    inputSchema: {
+      tenant_id: z.string().describe("tenant id from answerhatch_create_tenant"),
+      plan: z
+        .enum(["personal", "starter", "professional", "scale"])
+        .describe("the plan to subscribe to"),
+    },
+    impl: subscribe,
   },
 ];
 
