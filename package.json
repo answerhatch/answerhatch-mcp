@@ -1,0 +1,48 @@
+{
+  "name": "answerhatch-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AnswerHatch: onboard a domain to a cite-or-refuse answer widget from your agent (sign in, register a domain, verify by DNS, crawl, collect the embed snippet).",
+  "license": "MIT",
+  "author": "AnswerHatch (https://answerhatch.com)",
+  "homepage": "https://answerhatch.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/answerhatch/answerhatch-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/answerhatch/answerhatch-mcp/issues"
+  },
+  "type": "module",
+  "bin": {
+    "answerhatch-mcp": "index.js"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "zod": "4.5.4"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "answerhatch",
+    "docs",
+    "documentation",
+    "ai",
+    "cite-or-refuse",
+    "rag",
+    "onboarding",
+    "widget"
+  ]
+}
